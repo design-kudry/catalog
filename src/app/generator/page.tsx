@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ArrowLeft, Copy, Save, Zap } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { mockPrompts } from '@/data/mockData'
 
 // Расширенные роли (dropdown)
 const roles = [
@@ -45,16 +47,33 @@ const tones = [
 ]
 
 export default function GeneratorPage() {
-  const [role, setRole] = useState('')
-  const [task, setTask] = useState('')
-  const [format, setFormat] = useState('')
+  const searchParams = useSearchParams()
+  const basePromptId = searchParams.get('basePromptId')
+  const basePrompt = basePromptId ? mockPrompts.find(p => p.id === basePromptId) : null
+
+  const [role, setRole] = useState(basePrompt?.role || '')
+  const [task, setTask] = useState(basePrompt?.goal || '')
+  const [format, setFormat] = useState(basePrompt?.format || '')
   const [tone, setTone] = useState('')
   const [context, setContext] = useState('')
   const [constraints, setConstraints] = useState('')
+  const [basePromptText, setBasePromptText] = useState(basePrompt?.content || '')
+  const [customizations, setCustomizations] = useState('')
   const [generated, setGenerated] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const generatedPrompt = role && task ? `Ты ${role}.
+  useEffect(() => {
+    if (basePrompt) {
+      setRole(basePrompt.role)
+      setTask(basePrompt.goal)
+      setFormat(basePrompt.format)
+      setBasePromptText(basePrompt.content)
+    }
+  }, [basePrompt])
+
+  const generatedPrompt = basePrompt 
+    ? `${basePromptText}${customizations ? `\n\nДополнительные требования:\n${customizations}` : ''}${tone ? `\n\nТон общения: ${tone}` : ''}`
+    : role && task ? `Ты ${role}.
 
 Твоя задача: ${task}
 
@@ -210,6 +229,29 @@ ${constraints ? `Ограничения: ${constraints}` : ''}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10"
                 />
               </div>
+
+              {/* Адаптация базового промпта */}
+              {basePrompt && (
+                <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2 mb-3">
+                    <span className="text-amber-600 font-bold">💡</span>
+                    <div>
+                      <h3 className="font-semibold text-amber-900">Адаптация: {basePrompt.title}</h3>
+                      <p className="text-sm text-amber-800 mt-1">Этот промпт будет использован как основа</p>
+                    </div>
+                  </div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2 mt-3">
+                    Дополнительные требования (опционально)
+                  </label>
+                  <textarea
+                    value={customizations}
+                    onChange={(e) => setCustomizations(e.target.value)}
+                    placeholder="Например: Добавь проверку на спам, Используй более формальный стиль..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-amber-300 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 bg-white"
+                  />
+                </div>
+              )}
 
               <Button
                 variant="primary"

@@ -192,10 +192,16 @@ export default function CatalogPromptPage() {
                   Использовать промпт
                 </Button>
               </Link>
+              <Link href={`/generator?basePromptId=${prompt.id}`} className="flex-1">
+                <Button variant="outline" className="w-full gap-2 py-3 border-amber-300 text-amber-700 hover:bg-amber-50">
+                  <Zap className="w-5 h-5" />
+                  Адаптировать в генераторе
+                </Button>
+              </Link>
               <Link href={`/workspace?prompt=${prompt.id}`} className="flex-1">
                 <Button variant="outline" className="w-full gap-2 py-3">
                   <Edit className="w-5 h-5" />
-                  Редактировать в Workspace
+                  Редактировать
                 </Button>
               </Link>
             </div>

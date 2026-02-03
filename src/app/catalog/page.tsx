@@ -2,26 +2,28 @@
 
 import { useState, useMemo } from 'react'
 import { mockPrompts } from '@/data/mockData'
-import { SearchInput } from '@/components/ui/SearchInput'
-import { Filters } from '@/components/Filters'
-import { PromptCard } from '@/components/PromptCard'
+import SemanticSearch from '@/components/SemanticSearch'
+import ModernPromptCard from '@/components/ModernPromptCard'
+import { PromptFilter } from '@/types'
 import { useSearchParams } from 'next/navigation'
 
 export default function CatalogPage() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
-  const initialCategory = searchParams.get('category') || ''
 
   const [searchQuery, setSearchQuery] = useState(initialQuery)
-  const [filters, setFilters] = useState<Record<string, string[]>>({})
-  const [sortBy, setSortBy] = useState<'relevant' | 'popular' | 'new'>('relevant')
+  const [filters, setFilters] = useState<PromptFilter>({
+    search: initialQuery,
+    sort: 'relevant',
+  })
   const [savedPrompts, setSavedPrompts] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const filteredPrompts = useMemo(() => {
     let result = [...mockPrompts]
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    if (filters.search) {
+      const query = filters.search.toLowerCase()
       result = result.filter(
         (p) =>
           p.title.toLowerCase().includes(query) ||
@@ -31,15 +33,21 @@ export default function CatalogPage() {
       )
     }
 
-    Object.entries(filters).forEach(([key, values]) => {
-      if (values && values.length > 0) {
-        result = result.filter((prompt: any) => values.includes(prompt[key]))
-      }
-    })
+    if (filters.role) {
+      result = result.filter((p) => p.role === filters.role)
+    }
 
-    if (sortBy === 'popular') {
-      result.sort((a, b) => b.savedCount - a.savedCount)
-    } else if (sortBy === 'new') {
+    if (filters.level) {
+      result = result.filter((p) => p.level === filters.level)
+    }
+
+    if (filters.tool) {
+      result = result.filter((p) => p.tool === filters.tool)
+    }
+
+    if (filters.sort === 'popular') {
+      result.sort((a, b) => b.usedCount - a.usedCount)
+    } else if (filters.sort === 'new') {
       result.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -47,7 +55,17 @@ export default function CatalogPage() {
     }
 
     return result
-  }, [searchQuery, filters, sortBy])
+  }, [filters])
+
+  const handleSearch = (query: string, newFilters: PromptFilter) => {
+    setSearchQuery(query)
+    setFilters(newFilters)
+  }
+
+  const handleClearFilters = () => {
+    setSearchQuery('')
+    setFilters({ search: '', sort: 'relevant' })
+  }
 
   const handleSave = (id: string) => {
     setSavedPrompts((prev) => {
@@ -62,62 +80,90 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Каталог промптов</h1>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Каталог текстовых промптов</h1>
+          <p className="text-lg text-gray-600">
+            Найди готовый промпт для своей задачи или создай свой. Более 100+ проверенных промптов для маркетинга, разработки, дизайна и творчества.
+          </p>
+        </div>
 
-        {/* Search & Filters */}
-        <div className="mb-8 space-y-4">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Поиск промптов..."
+        {/* Semantic Search */}
+        <div className="mb-12">
+          <SemanticSearch
+            onSearch={handleSearch}
+            onClear={handleClearFilters}
           />
+        </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Filters onFilterChange={setFilters} />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-brand text-sm"
+        {/* View Toggle & Results Info */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="text-sm text-gray-600">
+            {filteredPrompts.length > 0 ? (
+              <span>
+                Найдено <strong>{filteredPrompts.length}</strong> {
+                  filteredPrompts.length === 1 ? 'промпт' : 'промптов'
+                }
+              </span>
+            ) : (
+              <span>Ничего не найдено</span>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                viewMode === 'grid'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <option value="relevant">Релевантные</option>
-              <option value="popular">Популярные</option>
-              <option value="new">Новые</option>
-            </select>
+              Сетка
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                viewMode === 'list'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Список
+            </button>
           </div>
         </div>
 
         {/* Results */}
         {filteredPrompts.length > 0 ? (
-          <>
-            <p className="text-sm text-gray-600 mb-6">
-              Найдено {filteredPrompts.length} {
-                filteredPrompts.length === 1 ? 'промпт' : 'промптов'
-              }
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPrompts.map((prompt) => (
-                <a key={prompt.id} href={`/catalog/${prompt.id}`}>
-                  <PromptCard
-                    prompt={prompt}
-                    onSave={handleSave}
-                    onUse={() => {}}
-                    isSaved={savedPrompts.has(prompt.id)}
-                  />
-                </a>
-              ))}
-            </div>
-          </>
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+            {filteredPrompts.map((prompt) => (
+              <ModernPromptCard
+                key={prompt.id}
+                prompt={{
+                  ...prompt,
+                  isSaved: savedPrompts.has(prompt.id),
+                }}
+                onSave={handleSave}
+                onCopy={(content) => {
+                  navigator.clipboard.writeText(content)
+                }}
+                variant={viewMode}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">Ничего не найдено</p>
+          <div className="text-center py-16 px-4">
+            <div className="text-6xl mb-4">🔍</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Промпты не найдены</h2>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Попробуй изменить параметры поиска или используй другие ключевые слова
+            </p>
             <button
-              onClick={() => {
-                setSearchQuery('')
-                setFilters({})
-              }}
-              className="text-brand hover:text-brand-dark"
+              onClick={handleClearFilters}
+              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition"
             >
               Очистить фильтры
             </button>
